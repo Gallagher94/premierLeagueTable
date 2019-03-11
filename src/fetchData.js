@@ -6,7 +6,6 @@ let leagueTable = new Map();
  * Get data
  */
 const getPremierLeagueTable = async () => {
-  // leagueTable = new Map();
   try {
     const response = await fetch(DATAURL);
     const json = await response.json();

@@ -16,13 +16,11 @@ import {
 describe("Test calculations", () => {
   it("calculateGoalDifference returns as expected", () => {
     const testValue1 = { GF: 10, GA: 2 };
-    expect(calculateGoalDifference(testValue1)).not.toEqual(10);
     expect(calculateGoalDifference(testValue1)).toEqual(8);
   });
 
   it("calculatePoints returns as expected", () => {
     const testValue1 = { wins: 1, draws: 2 };
-    expect(calculatePoints(testValue1)).not.toEqual(8);
     expect(calculatePoints(testValue1)).toEqual(5);
   });
 
@@ -42,7 +40,6 @@ describe("Test calculations", () => {
   });
 
   it("calculateGamesPlayed returns as expected", () => {
-    expect(calculateGamesPlayed(10, 2, 0)).not.toEqual(0);
     expect(calculateGamesPlayed(10, 2, 0)).toEqual(12);
   });
 });
@@ -89,14 +86,19 @@ describe("Test transformation", () => {
       rounds: [
         {
           matches: [{ team: "footballTeam1" }, { team: "footballTeam1" }]
+        },
+        {
+          matches: [{ team: "footballTeam3" }, { team: "footballTeam4" }]
         }
       ]
     };
-    const formatted = [{ team: "footballTeam1" }, { team: "footballTeam1" }];
+    const formatted = [
+      { team: "footballTeam1" },
+      { team: "footballTeam1" },
+      { team: "footballTeam3" },
+      { team: "footballTeam4" }
+    ];
 
-    expect(transformAllFixturesIntoOneStructure(unformatted)).not.toEqual(
-      unformatted
-    );
     expect(transformAllFixturesIntoOneStructure(unformatted)).toEqual(
       formatted
     );
@@ -120,6 +122,8 @@ describe("Core behaviour", () => {
       }
     ];
 
+    const leagueTable = new Map();
+
     const finalLeagueTable = new Map();
     finalLeagueTable.set("team1", {
       draws: 0,
@@ -152,22 +156,13 @@ describe("Core behaviour", () => {
       points: 0
     });
 
-    expect(createTableFromFixtureData(leagueFixtures)).toEqual(
+    expect(createTableFromFixtureData(leagueFixtures, leagueTable)).toEqual(
       finalLeagueTable
     );
   });
 
   it("Test getUpdatedTeamData returns as expected ", () => {
-    const teamStats = {
-      GF: 1,
-      GA: 0,
-      wins: 1,
-      losses: 0,
-      draws: 0
-    };
-    const teamCode = "team4";
-
-    const result = {
+    const existingValues = {
       GF: 1,
       GA: 0,
       wins: 1,
@@ -178,7 +173,26 @@ describe("Core behaviour", () => {
       played: 1
     };
 
-    expect(getUpdatedTeamData(teamStats, teamCode)).toEqual(result);
+    const teamStats = {
+      GF: 1,
+      GA: 0,
+      wins: 1,
+      losses: 0,
+      draws: 0
+    };
+
+    const result = {
+      GF: 2,
+      GA: 0,
+      wins: 2,
+      losses: 0,
+      draws: 0,
+      GD: 2,
+      points: 6,
+      played: 2
+    };
+
+    expect(getUpdatedTeamData(teamStats, existingValues)).toEqual(result);
   });
 
   it("Test getPremierLeagueTable returns as expected ", async () => {
@@ -189,8 +203,8 @@ describe("Core behaviour", () => {
             {
               score1: 1,
               score2: 0,
-              team1: { key: "team4", code: "team4" },
-              team2: { key: "team5", code: "team5" }
+              team1: { key: "team1", code: "team1" },
+              team2: { key: "team2", code: "team2" }
             }
           ]
         }
@@ -203,16 +217,6 @@ describe("Core behaviour", () => {
     jest.spyOn(global, "fetch").mockImplementation(() => mockFetchPromise);
 
     const finalLeagueTable = new Map();
-    finalLeagueTable.set("team4", {
-      draws: 0,
-      losses: 0,
-      played: 1,
-      wins: 1,
-      GF: 1,
-      GA: 0,
-      GD: 1,
-      points: 3
-    });
     finalLeagueTable.set("team1", {
       draws: 0,
       losses: 0,
@@ -223,27 +227,8 @@ describe("Core behaviour", () => {
       GD: 1,
       points: 3
     });
+
     finalLeagueTable.set("team2", {
-      draws: 0,
-      losses: 1,
-      played: 2,
-      wins: 1,
-      GF: 1,
-      GA: 1,
-      GD: 0,
-      points: 3
-    });
-    finalLeagueTable.set("team3", {
-      draws: 0,
-      losses: 1,
-      played: 1,
-      wins: 0,
-      GF: 0,
-      GA: 1,
-      GD: -1,
-      points: 0
-    });
-    finalLeagueTable.set("team5", {
       draws: 0,
       losses: 1,
       played: 1,

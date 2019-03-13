@@ -1,16 +1,27 @@
 const DATAURL =
   "https://raw.githubusercontent.com/openfootball/football.json/master/2016-17/en.1.json";
-let leagueTable = new Map();
+/*
+ * Helper providing base values for new teams being added into table
+ */
+const getDefaultTeamValues = Object.freeze({
+  wins: 0,
+  losses: 0,
+  draws: 0,
+  GF: 0,
+  GA: 0
+});
 
+let leagueTable;
 /*
  * Get data
  */
 const getPremierLeagueTable = async () => {
+  leagueTable = new Map();
   try {
     const response = await fetch(DATAURL);
     const json = await response.json();
     const leagueFixtures = transformAllFixturesIntoOneStructure(json);
-    return createTableFromFixtureData(leagueFixtures);
+    return createTableFromFixtureData(leagueFixtures, leagueTable);
   } catch (error) {
     console.log("Data was not pulled from remote correctly");
     return leagueTable;
@@ -33,46 +44,44 @@ const transformAllFixturesIntoOneStructure = unformatted => {
 /*
  * Core Functionality
  */
-const createTableFromFixtureData = leagueFixtures => {
+const createTableFromFixtureData = (leagueFixtures, leagueTable) => {
   leagueFixtures.forEach(({ team1, team2, score1, score2 }) => {
     const teamOne = {
       teamCode: team1.code,
-      goalsFor: score1,
-      goalsAgainst: score2
+      GF: score1,
+      GA: score2
     };
     const teamTwo = {
       teamCode: team2.code,
-      goalsFor: score2,
-      goalsAgainst: score1
+      GF: score2,
+      GA: score1
     };
-    updateTable(teamOne);
-    updateTable(teamTwo);
+    updateTable([teamOne, teamTwo], leagueTable);
   });
 
-  const sortedByGA = sortLeagueTableOnDescendingData(leagueTable, ["GA"]);
-  const sortedByGF = sortLeagueTableOnAscendingData(sortedByGA, ["GF"]);
-  const sortedByGD = sortLeagueTableOnAscendingData(sortedByGF, ["GD"]);
-  const sortedByPoints = sortLeagueTableOnAscendingData(sortedByGD, ["points"]);
+  const sortedByGA = sortLeagueTableOnDescendingData(leagueTable, "GA");
+  const sortedByGF = sortLeagueTableOnAscendingData(sortedByGA, "GF");
+  const sortedByGD = sortLeagueTableOnAscendingData(sortedByGF, "GD");
+  const sortedByPoints = sortLeagueTableOnAscendingData(sortedByGD, "points");
   return sortedByPoints;
 };
 
-const updateTable = ({ teamCode, goalsFor, goalsAgainst }) => {
-  const teamStats = {
-    GF: goalsFor,
-    GA: goalsAgainst,
-    wins: calculateWin(goalsFor, goalsAgainst),
-    losses: calculateLoss(goalsFor, goalsAgainst),
-    draws: calculateDraw(goalsFor, goalsAgainst)
-  };
-  const newTeamState = getUpdatedTeamData(teamStats, teamCode);
-  leagueTable.set(teamCode, newTeamState);
+const updateTable = (teamsToUpdate, leagueTable) => {
+  teamsToUpdate.forEach(({ teamCode, GF, GA }) => {
+    const teamStats = {
+      GF,
+      GA,
+      wins: calculateWin(GF, GA),
+      losses: calculateLoss(GF, GA),
+      draws: calculateDraw(GF, GA)
+    };
+    const currentStats = leagueTable.get(teamCode);
+    const newTeamStats = getUpdatedTeamData(teamStats, currentStats);
+    leagueTable.set(teamCode, newTeamStats);
+  });
 };
 
-const getUpdatedTeamData = (newStats, teamCode) => {
-  const currentStats = leagueTable.has(teamCode)
-    ? leagueTable.get(teamCode)
-    : getDefaultTeamValues();
-
+const getUpdatedTeamData = (newStats, currentStats = getDefaultTeamValues) => {
   const teamStats = {
     wins: currentStats.wins + newStats.wins,
     losses: currentStats.losses + newStats.losses,
@@ -92,40 +101,17 @@ const getUpdatedTeamData = (newStats, teamCode) => {
 };
 
 /*
- * Helper providing base values for new teams being added into table
- */
-const getDefaultTeamValues = () => {
-  return {
-    wins: 0,
-    losses: 0,
-    draws: 0,
-    GF: 0,
-    GA: 0
-  };
-};
-
-/*
  * Calculations
  */
-const calculateGoalDifference = ({ GF, GA }) => {
-  return GF - GA;
-};
+const calculateGoalDifference = ({ GF, GA }) => GF - GA;
 
-const calculatePoints = ({ wins, draws }) => {
-  return wins * 3 + draws * 1;
-};
+const calculatePoints = ({ wins, draws }) => wins * 3 + draws * 1;
 
-const calculateWin = (goalsScored, goalsAgainst) => {
-  return goalsScored > goalsAgainst ? 1 : 0;
-};
+const calculateWin = (GF, GA) => (GF > GA ? 1 : 0);
 
-const calculateLoss = (goalsScored, goalsAgainst) => {
-  return goalsScored < goalsAgainst ? 1 : 0;
-};
+const calculateLoss = (GF, GA) => (GF < GA ? 1 : 0);
 
-const calculateDraw = (goalsScored, goalsAgainst) => {
-  return goalsScored === goalsAgainst ? 1 : 0;
-};
+const calculateDraw = (GF, GA) => (GF === GA ? 1 : 0);
 
 const calculateGamesPlayed = (wins, losses, draws) => {
   return wins + losses + draws;
@@ -136,30 +122,29 @@ const calculateGamesPlayed = (wins, losses, draws) => {
  */
 const sortLeagueTableOnAscendingData = (leagueTable, sortVar) => {
   return new Map(
-    [...leagueTable].sort((a, b) =>
-      a[1][sortVar] === b[1][sortVar]
-        ? 0
-        : b[1][sortVar] > a[1][sortVar]
-        ? 1
-        : -1
-    )
+    [...leagueTable].sort((a, b) => {
+      const sortVarA = a[1][sortVar];
+      const sortVarB = b[1][sortVar];
+      return sortVarB - sortVarA;
+    })
   );
 };
 
 const sortLeagueTableOnDescendingData = (leagueTable, sortVar) => {
   return new Map(
-    [...leagueTable].sort((a, b) =>
-      a[1][sortVar] === b[1][sortVar]
-        ? 0
-        : a[1][sortVar] > b[1][sortVar]
-        ? 1
-        : -1
-    )
+    [...leagueTable].sort((a, b) => {
+      const sortVarA = a[1][sortVar];
+      const sortVarB = b[1][sortVar];
+      return sortVarA - sortVarB;
+    })
   );
 };
 
 export default getPremierLeagueTable;
 
+/*
+ * Exports For Testing
+ */
 if (process.env.NODE_ENV === "test") {
   module.exports = {
     calculateGoalDifference,
